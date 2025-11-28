@@ -1,0 +1,44 @@
+from typing import Any, List, Optional
+from pydantic import BaseModel, EmailStr, Field
+
+
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+
+class UserInDB(BaseModel): # Модель для отправки пользователю (без пароля)
+    id: int
+    username: str
+    email: EmailStr
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(...)
+    password: str = Field(...)
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+class RegisterRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=64)
+    email: Optional[EmailStr] = Field(...)
+    profile: Optional[dict[str, Any]] = None
+    password: str = Field(..., min_length=8)
+
+class LogoutRequest(BaseModel):
+    pass
