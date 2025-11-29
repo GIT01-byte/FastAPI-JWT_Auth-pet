@@ -1,6 +1,6 @@
 from sqlalchemy import select
 
-from schemas.users import RegisterRequest
+from schemas.users import UserInsertDB
 from models.users import UsersOrm
 
 from db.database import Base, async_session_factory, async_engine
@@ -16,17 +16,18 @@ class UsersRepo():
             async_engine.echo = False
 
     @staticmethod
-    async def insert_user(payload: ...):
+    async def insert_user(payload: UserInsertDB) -> UsersOrm:
         async with async_session_factory() as session:
             user_dict = payload.model_dump()
             
-            user = UsersOrm(**user_dict)
-            session.add(user)
+            created_user = UsersOrm(**user_dict)
+            session.add(created_user)
             await session.flush()
             await session.commit()
+            await session.refresh(created_user)
+            
+            return created_user
 
-            return user.username
-    
     @staticmethod
     async def select_user_by_username(username: str) -> UsersOrm | None:
         async with async_session_factory() as session:

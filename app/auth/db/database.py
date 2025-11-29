@@ -10,7 +10,7 @@ from config import settings
 
 async_engine = create_async_engine(
     url=settings.db_settings.DATABASE_URL_asyncpg,
-    echo=True,
+    echo=False,
 )
 
 async_session_factory = async_sessionmaker(async_engine)

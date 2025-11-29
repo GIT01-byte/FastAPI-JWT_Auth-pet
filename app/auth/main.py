@@ -13,7 +13,7 @@ from api.api import api_routers
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await UsersRepo.create_tables() 
+    # await UsersRepo.create_tables() 
     print('INFO:     База перезапущена')
     yield
     print('INFO:     Выключение...')

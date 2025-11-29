@@ -36,10 +36,11 @@ from services.jwt_tokens import (
 
 from typing import Any, Callable, Coroutine 
 
+
 http_bearer = HTTPBearer(auto_error=False)
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl='/jwt_auth/login/'
+    tokenUrl='/users/login/'
 )
 
 

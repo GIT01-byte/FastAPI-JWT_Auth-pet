@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from fastapi.security import HTTPBearer
 
 from services.jwt_tokens import create_access_token
 
@@ -17,12 +18,16 @@ from schemas.users import (
 from services.auth_service import authenticate_user
 
 from deps.auth_deps import (
+    http_bearer,
     get_current_auth_user_for_refresh,
     get_current_token_payload,
     get_current_active_auth_user,
 )
 
-router = APIRouter()
+
+router = APIRouter(
+    dependencies=[Depends(http_bearer)],
+    )
 
 
 @router.post('/login')

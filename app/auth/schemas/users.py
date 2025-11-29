@@ -3,10 +3,11 @@ from typing import Any, List, Optional
 from pydantic import BaseModel, EmailStr, Field
 
 
-class UserCreate(BaseModel):
+class UserInsertDB(BaseModel):
     username: str
-    email: EmailStr
-    password: str
+    email: Optional[EmailStr] = None
+    profile: Optional[dict[str, Any]] = None
+    hashed_password: bytes
 
 class UserUpdate(BaseModel):
     username: Optional[str] = None
