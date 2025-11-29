@@ -1,6 +1,5 @@
 from datetime import timedelta
 
-from models.users import UsersOrm
 from config import settings
 
 from schemas.users import UserInDB
@@ -30,7 +29,7 @@ def create_jwt(
         )
 
 
-def create_access_token(user: UsersOrm) -> str:
+def create_access_token(user: UserInDB) -> str:
     jwt_payload = {
         'sub': user.username,
         'username': user.username,
@@ -42,7 +41,7 @@ def create_access_token(user: UsersOrm) -> str:
         expire_minutes=settings.jwt_auth.access_token_expire_minutes,
     )
 
-def create_refresh_token(user: UsersOrm) -> str:
+def create_refresh_token(user: UserInDB) -> str:
     jwt_payload = {
         'sub': user.username,
     }

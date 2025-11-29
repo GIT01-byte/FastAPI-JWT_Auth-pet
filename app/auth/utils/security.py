@@ -1,3 +1,4 @@
+from typing import Any
 import bcrypt
 
 from datetime import timedelta, datetime, timezone
@@ -16,11 +17,11 @@ def hash_password(
 
 def check_password(
     password: str,
-    password_hash: bytes,
+    hashed_password: bytes,
 ) -> bool:
     return bcrypt.checkpw(
         password=password.encode(),
-        hashed_password=password_hash,
+        hashed_password=hashed_password,
     )
 
 
@@ -30,7 +31,7 @@ def encode_jwt(
     algorithm: str = settings.jwt_auth.algorithm,
     expire_minutes: int = settings.jwt_auth.access_token_expire_minutes,
     expire_timedelta: timedelta | None = None,
-):
+) -> str:
     to_encode = payload.copy()
     now = datetime.now(timezone.utc)
     if expire_timedelta:
@@ -52,7 +53,7 @@ def decode_jwt(
     token: str | bytes,
     public_key: str = settings.jwt_auth.public_key_path.read_text(),
     algorithm: str = settings.jwt_auth.algorithm,
-):
+) -> dict[str, Any]:
     decoded = jwt.decode(
         token,
         public_key,

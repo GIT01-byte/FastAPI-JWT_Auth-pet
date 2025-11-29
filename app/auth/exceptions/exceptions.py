@@ -2,12 +2,12 @@ from fastapi import status
 from .base import BaseAPIException
 
 
-class UserInactiveError(BaseAPIException):
-    def __init__(self, detail: str = "User is not active"):
-        super().__init__(detail=detail, status_code=status.HTTP_400_BAD_REQUEST)
-
 class InvalidCredentialsError(BaseAPIException):
     def __init__(self, detail: str = "Invalid credentials"):
+        super().__init__(detail=detail, status_code=status.HTTP_401_UNAUTHORIZED)
+
+class InvalidTokenPayload(BaseAPIException):
+    def __init__(self, detail: str = "Invalid token payload"):
         super().__init__(detail=detail, status_code=status.HTTP_401_UNAUTHORIZED)
 
 class PasswordRequiredError(BaseAPIException):
@@ -26,9 +26,13 @@ class TokenRevokedError(BaseAPIException):
     def __init__(self, detail: str = "Token has been revoked"):
         super().__init__(detail=detail, status_code=status.HTTP_401_UNAUTHORIZED)
 
-class InvalidTokenError(BaseAPIException):
+class MalformedTokenError(BaseAPIException):
     def __init__(self, detail: str = "Invalid or malformed token"):
         super().__init__(detail=detail, status_code=status.HTTP_401_UNAUTHORIZED)
+
+class UserInactiveError(BaseAPIException):
+    def __init__(self, detail: str = "User is not active"):
+        super().__init__(detail=detail, status_code=status.HTTP_403_FORBIDDEN)
 
 class UserNotFoundError(BaseAPIException):
     def __init__(self, detail: str = "User not found"):

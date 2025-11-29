@@ -1,4 +1,5 @@
 from typing import Any, List, Optional
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -12,10 +13,11 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = None
 
-class UserInDB(BaseModel): # Модель для отправки пользователю (без пароля)
+class UserInDB(BaseModel):
     id: int
     username: str
-    email: EmailStr
+    email: EmailStr | None = None
+    hashed_password: bytes
     is_active: bool
 
     class Config:
@@ -28,7 +30,7 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: str
+    refresh_token: str | None = None
     token_type: str = "bearer"
 
 class RefreshRequest(BaseModel):

@@ -10,7 +10,7 @@ class UsersOrm(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     
     username: Mapped[str] = mapped_column(unique=True, nullable=False)
-    password_hash: Mapped[bytes] = mapped_column(unique=True, nullable=False)
+    hashed_password: Mapped[bytes] = mapped_column(unique=True, nullable=False)
     email: Mapped[str | None] = mapped_column(unique=True)
     avatar_links: Mapped[str | None]
     
