@@ -9,11 +9,6 @@ class UserInsertDB(BaseModel):
     profile: Optional[dict[str, Any]] = None
     hashed_password: bytes
 
-class UserUpdate(BaseModel):
-    username: Optional[str] = None
-    email: Optional[EmailStr] = None
-    password: Optional[str] = None
-
 class UserInDB(BaseModel):
     id: int
     username: str

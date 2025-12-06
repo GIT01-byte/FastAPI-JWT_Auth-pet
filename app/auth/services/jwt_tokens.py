@@ -8,8 +8,8 @@ from utils.security import encode_jwt
 
 
 TOKEN_TYPE_FIELD = 'type'
-ACCESS_TOKEN_TYPE = 'access'
-REFRESH_TOKEN_TYPE = 'refresh'
+ACCESS_TOKEN_TYPE = 'access_token'
+REFRESH_TOKEN_TYPE = 'refresh_token'
 
 
 def create_jwt(
@@ -29,11 +29,9 @@ def create_jwt(
         )
 
 
-def create_access_token(user: UserInDB) -> str:
+def create_access_token(user_id: str) -> str:
     jwt_payload = {
-        'sub': user.username,
-        'username': user.username,
-        'email': user.email,
+        'sub': user_id,
     }
     return create_jwt(
         token_type=ACCESS_TOKEN_TYPE,
@@ -41,9 +39,9 @@ def create_access_token(user: UserInDB) -> str:
         expire_minutes=settings.jwt_auth.access_token_expire_minutes,
     )
 
-def create_refresh_token(user: UserInDB) -> str:
+def create_refresh_token(user_id: str) -> str:
     jwt_payload = {
-        'sub': user.username,
+        'sub': user_id,
     }
     return create_jwt(
         token_type=REFRESH_TOKEN_TYPE,

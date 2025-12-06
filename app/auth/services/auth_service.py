@@ -1,17 +1,20 @@
-from typing import Any
+from fastapi import Response
+from fastapi.responses import JSONResponse 
 
 from schemas.users import UserInDB
 
+from config import settings
+
 from services.jwt_tokens import (
+    REFRESH_TOKEN_TYPE,
+    ACCESS_TOKEN_TYPE,
     create_access_token,
     create_refresh_token,
     )
 
 from exceptions.exceptions import (
-    InvalidCredentialsError,
-    InvalidPasswordError,
-    PasswordRequiredError,
     UserNotFoundError,
+    InvalidPasswordError,
     UserInactiveError,
     )
 
@@ -22,7 +25,7 @@ from db.user_repository import UsersRepo
 async def authenticate_user(
     username: str,
     password: str,
-) -> dict[str, Any]:
+) -> Response:
     user_data_from_db = await UsersRepo.select_user_by_username(username)
 
     # Проверяем полученного user'а
@@ -48,19 +51,42 @@ async def authenticate_user(
     )
 
     # Генерируем токены
-    user_id = user_data_from_db.id
-    access_token = create_access_token(user)
-    refresh_token = create_refresh_token(user)
+    user_id = str(user_data_from_db.id) # Обязательно делаем строчкой, для избежания ошибки "InvalidSubjectError: Subject must be a string"
+    access_token = create_access_token(user_id)
+    refresh_token = create_refresh_token(user_id)
 
-    return {
-        "user_id": user_id,
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-    }
+    # Создаем Response и устанавливаем куки
+    response = Response(
+        content=user.model_dump_json(), # Тело ответа - данные пользователя (без пароля)
+        status_code=200,
+        media_type="application/json",
+    )
 
-# TODO: Сделать функцию для регистрации 
-# async def register_user(
-#     payload: dict,
-#     password: str,
-# ) -> ...:
+    # Устанавливаем куки, включая настройки безопасности
+    response.set_cookie(
+        key=ACCESS_TOKEN_TYPE,
+        value=access_token,
+        httponly=True,          # Доступно только через HTTP
+        secure=True,            # Только по HTTPS (важно для продакшена)
+        samesite="lax",         # Защита от CSRF
+        max_age=60 * settings.jwt_auth.access_token_expire_minutes # Время жизни куки
+    )
+    response.set_cookie(
+        key=REFRESH_TOKEN_TYPE,
+        value=refresh_token,
+        httponly=True,
+        secure=True,            # Только по HTTPS
+        samesite="lax",         # Защита от CSRF
+        max_age=60 * 60 * 24 * settings.jwt_auth.refresh_token_expire_days # Время жизни куки
+    )
     
+    return response # Возвращаем готовый Response
+
+
+def logout_user(response: JSONResponse) -> JSONResponse:
+    # Удаляем куки токенов
+    response.delete_cookie(ACCESS_TOKEN_TYPE)
+    response.delete_cookie(REFRESH_TOKEN_TYPE)
+    
+    # Возвращаем статус и дополнительное сообщение для отладки
+    return JSONResponse(content={"message": "Logout successful"}, status_code=200)

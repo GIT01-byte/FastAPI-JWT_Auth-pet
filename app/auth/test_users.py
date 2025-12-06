@@ -49,7 +49,7 @@ async def add_test_user(username: str, password: str, email: Optional[str] = Non
 if __name__ == "__main__":
     # Пример использования:
     asyncio.run(add_test_user(
-        username="testuser",
-        password="testpassword",
+        username="string",
+        password="string",
         email="test@example.com",
     ))

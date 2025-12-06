@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from schemas.users import UserInsertDB
 from models.users import UsersOrm
@@ -10,10 +10,8 @@ class UsersRepo():
     @staticmethod
     async def create_tables():
         async with async_engine.begin() as conn:
-            async_engine.echo = False
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
-            async_engine.echo = False
 
     @staticmethod
     async def insert_user(payload: UserInsertDB) -> UsersOrm:
@@ -29,11 +27,34 @@ class UsersRepo():
             return created_user
 
     @staticmethod
+    async def select_user_by_user_id(user_id: int) -> UsersOrm | None:
+        async with async_session_factory() as session:
+            query = (
+                select(UsersOrm)
+                .where(UsersOrm.id == user_id)
+            )
+            result = await session.execute(query)
+            user = result.scalars().first()
+            return user
+
+    @staticmethod
     async def select_user_by_username(username: str) -> UsersOrm | None:
         async with async_session_factory() as session:
             query = (
                 select(UsersOrm)
                 .where(UsersOrm.username == username)
+            )
+            result = await session.execute(query)
+            user = result.scalars().first()
+            return user
+
+    @staticmethod
+    async def logout_user(user_id: int) -> UsersOrm | None:
+        async with async_session_factory() as session:
+            query = (
+                update(UsersOrm)
+                .where(UsersOrm.id == user_id)
+                .values(is_active=~UsersOrm.is_active)
             )
             result = await session.execute(query)
             user = result.scalars().first()

@@ -1,6 +1,9 @@
 from fastapi import status
 from .base import BaseAPIException
 
+class CookieMissingTokenError(BaseAPIException):
+    def __init__(self, detail: str = "Missing required cookies."):
+        super().__init__(detail=detail, status_code=status.HTTP_401_UNAUTHORIZED)
 
 class InvalidCredentialsError(BaseAPIException):
     def __init__(self, detail: str = "Invalid credentials"):

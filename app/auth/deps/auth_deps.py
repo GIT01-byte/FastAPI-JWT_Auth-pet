@@ -3,7 +3,8 @@ from jwt import InvalidTokenError
 from fastapi import (
     Depends, 
     Form, 
-    HTTPException, 
+    HTTPException,
+    Request,
     status,
 )
 
@@ -12,7 +13,10 @@ from fastapi.security import (
     OAuth2PasswordBearer,
 )
 
+from models.users import UsersOrm
+
 from exceptions.exceptions import (
+    CookieMissingTokenError,
     InvalidCredentialsError,
     MalformedTokenError, 
     InvalidTokenPayload,
@@ -31,17 +35,18 @@ from db.user_repository import UsersRepo
 from services.jwt_tokens import (
     TOKEN_TYPE_FIELD,
     ACCESS_TOKEN_TYPE,
-    REFRESH_TOKEN_TYPE
+    REFRESH_TOKEN_TYPE,
 )
 
 from typing import Any, Callable, Coroutine 
 
+import logging
+
+
+logger: logging.Logger = logging.getLogger(__name__)
+
 
 http_bearer = HTTPBearer(auto_error=False)
-
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl='/users/login/'
-)
 
 
 async def validate_auth_user(
@@ -75,16 +80,30 @@ async def validate_auth_user(
     )
 
 
+def get_tokens_by_cookie(request: Request) -> dict[str, str]:
+    access_token: str | None = request.cookies.get("access_token")
+    refresh_token: str | None = request.cookies.get("refresh_token")
+    
+    if access_token and refresh_token:
+        return {
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+        }
+    
+    raise CookieMissingTokenError()
+
+
 def get_current_token_payload(
-    token: str = Depends(oauth2_scheme)
+    tokens: dict[str, str] = Depends(get_tokens_by_cookie),
 ) -> dict[str, Any]:
     """
     Декодирует JWT-токен и возвращает его полезную нагрузку.
     """
     try:
-        payload = decode_jwt(
-            token=token,
+        payload: dict[str, Any] = decode_jwt(
+            token=tokens['access_token'],
         )
+        print(f"Decoded JWT Payload: {payload}")
     except InvalidTokenError as e:
         # TODO: Добавить логирование
         raise HTTPException(
@@ -101,7 +120,7 @@ def validate_token_type(
     """
     Проверяет тип токена в полезной нагрузке.
     """
-    current_token_type = payload.get(TOKEN_TYPE_FIELD)
+    current_token_type: Any | None = payload.get(TOKEN_TYPE_FIELD)
     if current_token_type == token_type:
         return True
     raise MalformedTokenError()
@@ -111,11 +130,11 @@ async def get_user_by_token_sub(
     payload: dict[str, Any]
 ) -> UserInDB:
     """
-    Извлекает пользователя из базы данных по 'sub' (username) из полезной нагрузки токена.
+    Извлекает пользователя из базы данных по 'sub' (user_id) из полезной нагрузки токена.
     """
-    username: str | None = payload.get('sub')
-    if username:
-        user_data_from_db = await UsersRepo.select_user_by_username(username)
+    user_id: int | None = int(payload.get('sub')) # type: ignore
+    if user_id:
+        user_data_from_db: UsersOrm | None = await UsersRepo.select_user_by_user_id(user_id)
         if not user_data_from_db:
             raise InvalidCredentialsError(detail='invalid username or password') 
         return UserInDB(
@@ -144,9 +163,9 @@ def get_auth_user_from_token_of_type(token_type: str) -> Callable[[dict[str, Any
 
 
 # Создаем конкретные зависимости, используя фабрику
-get_current_auth_user = get_auth_user_from_token_of_type(ACCESS_TOKEN_TYPE)
+get_current_auth_user: Callable[[dict[str, Any]], Coroutine[Any, Any, UserInDB]] = get_auth_user_from_token_of_type(ACCESS_TOKEN_TYPE)
 
-get_current_auth_user_for_refresh = get_auth_user_from_token_of_type(REFRESH_TOKEN_TYPE)
+get_current_auth_user_for_refresh: Callable[[dict[str, Any]], Coroutine[Any, Any, UserInDB]] = get_auth_user_from_token_of_type(REFRESH_TOKEN_TYPE)
 
 
 async def get_current_active_auth_user(

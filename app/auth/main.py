@@ -13,7 +13,7 @@ from api.api import api_routers
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # await UsersRepo.create_tables() 
+    # await UsersRepo.create_tables()
     print('INFO:     База перезапущена')
     yield
     print('INFO:     Выключение...')
@@ -23,8 +23,10 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],
-    allow_methods=["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(api_routers)
