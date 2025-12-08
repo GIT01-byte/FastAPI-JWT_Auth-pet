@@ -22,7 +22,7 @@ from exceptions.exceptions import (
 from utils.security import check_password, decode_jwt
 from db.user_repository import UsersRepo
 
-from deps.auth_deps import get_current_auth_user_for_refresh
+from deps.auth_deps import get_current_auth_user_for_refresh, get_current_refresh_token_payload
 
 async def authenticate_user(
     username: str,
@@ -88,7 +88,8 @@ async def authenticate_user(
 def refresh_user_tokens(refresh_token: str) -> Response:
     if refresh_token:
         # Извлекаем из refresh токена user id и еще проверяем токен на свежесть при помощи декодирования
-        refresh_payload = decode_jwt(token=refresh_token)
+        refresh_payload = get_current_refresh_token_payload()
+        # TODO add logging(exp handle)
         user_id = str(refresh_payload.get('sub'))
         # Создаем Response
         response = Response(
@@ -114,6 +115,7 @@ def refresh_user_tokens(refresh_token: str) -> Response:
             samesite="lax",         # Защита от CSRF
             max_age=60 * settings.jwt_auth.access_token_expire_minutes # Время жизни куки
         )
+        # TODO add logging(exp handle)
         response.set_cookie(
             key=REFRESH_TOKEN_TYPE,
             value=new_refresh_token,
@@ -122,6 +124,7 @@ def refresh_user_tokens(refresh_token: str) -> Response:
             samesite="lax",         # Защита от CSRF
             max_age=60 * settings.jwt_auth.access_token_expire_minutes # Время жизни куки
         )
+        # TODO add logging(exp handle)
 
         return response # Возвращаем готовый Response
     else:

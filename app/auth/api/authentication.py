@@ -1,26 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from fastapi.responses import JSONResponse
-
-from services.jwt_tokens import create_access_token
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from exceptions.exceptions import (
     InvalidCredentialsError,
     PasswordRequiredError,
+    UserAlreadyLoggedgError,
     )
-
 from schemas.users import (
     LoginRequest,
-    TokenResponse,
     UserInDB,
     )
-
 from services.auth_service import authenticate_user, logout_user, refresh_user_tokens
-
 from deps.auth_deps import (
     get_tokens_by_cookie,
     http_bearer,
-    get_current_auth_user_for_refresh,
-    get_current_token_payload,
+    get_current_access_token_payload,
     get_current_active_auth_user,
 )
 
@@ -34,6 +27,9 @@ router = APIRouter(
 async def login_user(
     request: LoginRequest,
 ):
+    # current_user = await get_current_active_auth_user()
+    # if current_user:
+    #     raise UserAlreadyLoggedgError()
     if not request.password:
         raise PasswordRequiredError()
     user = await authenticate_user(request.username, request.password)
@@ -77,7 +73,7 @@ async def auth_refresh_jwt(
 
 @router.get('/me/')
 async def auth_user_check_self_info(
-    payload: dict = Depends(get_current_token_payload),
+    payload: dict = Depends(get_current_access_token_payload),
     user: UserInDB = Depends(get_current_active_auth_user),
 ):
     iat = payload.get('iat')
@@ -90,6 +86,7 @@ async def auth_user_check_self_info(
 
 @router.post("/logout/")
 async def logout():
+    # TODO add exp handle (retry logging out)
     result = logout_user()
     return result
 
@@ -98,9 +95,5 @@ async def logout():
 async def get_cookie(
     result: dict = Depends(get_tokens_by_cookie)
 ):
-    if result:
-        return result
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail='Result of function: get_tokens_by_cookie is not realize',
-    )
+    return result
+

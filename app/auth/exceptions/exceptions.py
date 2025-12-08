@@ -45,6 +45,10 @@ class UserAlreadyExistsError(BaseAPIException):
     def __init__(self, detail: str = "User with this identifier already exists"):
         super().__init__(detail=detail, status_code=status.HTTP_409_CONFLICT)
 
+class UserAlreadyLoggedgError(BaseAPIException):
+    def __init__(self, detail: str = "User already logged"):
+        super().__init__(detail=detail, status_code=status.HTTP_409_CONFLICT)
+
 class RegistrationFailedError(BaseAPIException):
     def __init__(self, detail: str = "Registration failed due to internal error"):
         super().__init__(detail=detail, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
