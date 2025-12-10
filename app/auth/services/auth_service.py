@@ -10,13 +10,15 @@ from services.jwt_tokens import (
     )
 from exceptions.exceptions import (
     CookieMissingTokenError,
+    LogoutUserFailedError,
+    RefreshUserTokenFailesError,
     UserNotFoundError,
     InvalidPasswordError,
     UserInactiveError,
     )
 from utils.security import check_password, hash_password
 from db.user_repository import UsersRepo
-from deps.auth_deps import get_current_refresh_token_payload
+from deps.auth_deps import get_current_refresh_token_payload, set_tokens_cookie
 
 from utils.logging import logger
 
@@ -50,36 +52,29 @@ async def authenticate_user(
     )
 
     # Генерируем токены
-    user_id = str(user_data_from_db.id) # Обязательно делаем строчкой, для избежания ошибки "InvalidSubjectError: Subject must be a string"
+    user_id = str(user_data_from_db.id) # Обязательно делаем строчкой, во избежания неккоректной валидации токена
     access_token = create_access_token(user_id)
     refresh_token = create_refresh_token(user_id)
 
-    # Создаем Response и устанавливаем куки
+    # Устанавливаем куки
     response = Response(
         content=user.model_dump_json(), # Тело ответа - данные пользователя (без пароля)
         status_code=200,
         media_type="application/json",
     )
-
-    # Устанавливаем куки, включая настройки безопасности
-    response.set_cookie(
+    set_tokens_cookie(
         key=ACCESS_TOKEN_TYPE,
         value=access_token,
-        httponly=True,          # Доступно только через HTTP
-        secure=True,            # Только по HTTPS (важно для продакшена)
-        samesite="lax",         # Защита от CSRF
-        max_age=60 * settings.jwt_auth.access_token_expire_minutes # Время жизни куки
-    )
-    response.set_cookie(
+        max_age=settings.jwt_auth.access_token_expire_minutes,
+        response=response,
+        )
+    set_tokens_cookie(
         key=REFRESH_TOKEN_TYPE,
         value=refresh_token,
-        httponly=True,
-        secure=True,            # Только по HTTPS
-        samesite="lax",         # Защита от CSRF
-        max_age=60 * 60 * 24 * settings.jwt_auth.refresh_token_expire_days # Время жизни куки
-    )
-    
-    return response # Возвращаем готовый Response
+        max_age=settings.jwt_auth.refresh_token_expire_days,
+        response=response,
+        )
+    return response
 
 
 async def register_user_to_db(payload: dict, password: str) -> str:
@@ -94,51 +89,46 @@ async def register_user_to_db(payload: dict, password: str) -> str:
     return new_username
 
 
-def refresh_user_tokens(refresh_token: str) -> Response:
-    if refresh_token:
-        # Извлекаем из refresh токена user id и еще проверяем токен на свежесть при помощи декодирования
-        refresh_payload = get_current_refresh_token_payload()
-        # TODO add logging(exp handle)
-        user_id = str(refresh_payload.get('sub'))
-        # Создаем Response
-        response = Response(
-            content="{message: 'refresh access token succesfully'}",
-            status_code=200,
-            media_type="application/json",
-        )
+def refresh_user_token(refresh_token: str) -> Response:
+    try:
+        if refresh_token:
+            # Получаем user id из refresh
+            refresh_payload = get_current_refresh_token_payload()
+            user_id = str(refresh_payload.get('sub'))
 
-        # Удаляем куки старого access
-        response.delete_cookie(ACCESS_TOKEN_TYPE)
-
-        # Генерируем новый access
-        new_access_token = create_access_token(user_id)
-
-        # Устанавливаем куки с новым access
-        response.set_cookie(
-            key=ACCESS_TOKEN_TYPE,
-            value=new_access_token,
-            httponly=True,          # Доступно только через HTTP
-            secure=True,            # Только по HTTPS (важно для продакшена)
-            samesite="lax",         # Защита от CSRF
-            max_age=60 * settings.jwt_auth.access_token_expire_minutes # Время жизни куки
-        )
-        # TODO add logging(exp handle)
-
-        return response # Возвращаем готовый Response
-    else:
-        raise CookieMissingTokenError(detail='refresh token reqired in cookie')
-
+            # Устанавливаем куки с новым access
+            response = Response(
+                content="{message: 'refresh access token succesfully'}",
+                status_code=200,
+                media_type="application/json",
+            )
+            response.delete_cookie(ACCESS_TOKEN_TYPE)
+            new_access_token = create_access_token(user_id)
+            set_tokens_cookie(
+                key=ACCESS_TOKEN_TYPE,
+                value=new_access_token,
+                max_age=settings.jwt_auth.access_token_expire_minutes,
+                response=response,
+                )
+            return response
+        else:
+            logger.error('refresh token reqired in cookie')
+            raise CookieMissingTokenError(detail='refresh token reqired in cookie')
+    except:
+        logger.error(f'Refresh user token failed: {refresh_token!r}')
+        raise RefreshUserTokenFailesError()
 
 def logout_user() -> Response:
-    # Создаем Response
-    response = Response(
-        content="{message: 'logout succesfully'}", # Тело ответа - статус выхода пользователя
-        status_code=200,
-        media_type="application/json",
-    )   
-
-    # Удаляем куки токенов
-    response.delete_cookie(ACCESS_TOKEN_TYPE)
-    response.delete_cookie(REFRESH_TOKEN_TYPE)
-
-    return response # Возвращаем готовый Response
+    try:
+        # Удаляем куки токенов
+        response = Response(
+            content={'message': 'logout succesfully'},
+            status_code=200,
+            media_type="application/json",
+        )   
+        response.delete_cookie(ACCESS_TOKEN_TYPE)
+        response.delete_cookie(REFRESH_TOKEN_TYPE)
+        return response
+    except:
+        logger.error('logout user failed')
+        raise LogoutUserFailedError()

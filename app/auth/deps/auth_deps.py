@@ -9,6 +9,7 @@ from exceptions.exceptions import (
     InvalidCredentialsError,
     MalformedTokenError,
     InvalidTokenPayload,
+    SetCookieFailedError,
     UserInactiveError,
 )
 from schemas.users import UserInDB
@@ -18,6 +19,48 @@ from services.jwt_tokens import TOKEN_TYPE_FIELD, ACCESS_TOKEN_TYPE, REFRESH_TOK
 
 from utils.logging import logger
 
+
+def get_tokens_by_cookie(request: Request) -> dict[str, str]:
+    access_token = request.cookies.get("access_token")
+    refresh_token = request.cookies.get("refresh_token")
+    
+    if access_token and refresh_token:
+        logger.debug("Токены успешно извлечены из cookies.")
+        return {
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+        }
+    
+    logger.warning("Отсутствуют необходимые cookie с токенами.")
+    raise CookieMissingTokenError()
+
+def clear_cookie_with_tokens(response: Response) -> Response:
+    # Удаляем куки токенов
+    response.delete_cookie(ACCESS_TOKEN_TYPE)
+    response.delete_cookie(REFRESH_TOKEN_TYPE)
+
+    return response
+
+def set_tokens_cookie(
+    key: str,
+    value: str,
+    max_age: int,
+    response: Response,
+):
+    # Устанавливаем куки, включая настройки безопасности
+    try:
+        response.set_cookie(
+            key=key,
+            value=value,
+            httponly=True,          # Доступно только через HTTP
+            secure=True,            # Только по HTTPS (важно для безопастности)
+            samesite="lax",         # Защита от CSRF
+            max_age=max_age * 60 if isinstance(max_age, int) else None, 
+        )
+        logger.info(f'Установка куки успешно произошла. Ключ: {key!r}, значение: {value!r}, время жизни: {max_age!r} минут')
+    except:
+        logger.error(f'Установка куки произошла с ошибкой. Ключ: {key!r}, значение: {value!r}, время жизни: {max_age!r} минут')
+        raise SetCookieFailedError()
 
 async def validate_auth_user(
     username: str = Form(),
@@ -53,29 +96,8 @@ async def validate_auth_user(
             is_active=user_data_from_db.is_active,
         )
     except Exception as e:
-        logger.error(f"Ошибка при проверке учетных данных пользователя: {e}", exc_info=True)
+        logger.error(f"Ошибка при проверке учетных данных пользователя: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="internal server error")
-
-def get_tokens_by_cookie(request: Request) -> dict[str, str]:
-    access_token = request.cookies.get("access_token")
-    refresh_token = request.cookies.get("refresh_token")
-    
-    if access_token and refresh_token:
-        logger.debug("Токены успешно извлечены из cookies.")
-        return {
-            'access_token': access_token,
-            'refresh_token': refresh_token,
-        }
-    
-    logger.warning("Отсутствуют необходимые cookie с токенами.")
-    raise CookieMissingTokenError()
-
-def clear_cookie_with_tokens(response: Response) -> Response:
-    # Удаляем куки токенов
-    response.delete_cookie(ACCESS_TOKEN_TYPE)
-    response.delete_cookie(REFRESH_TOKEN_TYPE)
-
-    return response
 
 def get_current_access_token_payload(
     tokens: dict[str, str] = Depends(get_tokens_by_cookie),
@@ -171,7 +193,7 @@ async def get_current_active_auth_user(
     """
     Возвращает текущего активного аутентифицированного пользователя.
     """
-    logger.info(f"Авторизация пользователя: {user}")
+    logger.info(f"Авторизация пользователя: {user.id=}, {user.username=}")
     if user.is_active:
         return user
     raise UserInactiveError()

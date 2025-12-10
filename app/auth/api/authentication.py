@@ -5,7 +5,6 @@ from exceptions.exceptions import (
     PasswordRequiredError,
     RegistrationFailedError,
     UserAlreadyExistsError,
-    UserAlreadyLoggedgError,
     )
 from schemas.users import (
     LoginRequest,
@@ -15,7 +14,7 @@ from schemas.users import (
 from services.auth_service import (
     authenticate_user, 
     logout_user, 
-    refresh_user_tokens, 
+    refresh_user_token, 
     register_user_to_db
     )
 from deps.auth_deps import (
@@ -74,7 +73,7 @@ async def auth_refresh_jwt(
     tokens: dict = Depends(get_tokens_by_cookie),
 ):
     refresh_token = tokens['refresh_token']
-    user = refresh_user_tokens(refresh_token) # TODO fix dep sub error
+    user = refresh_user_token(refresh_token) # TODO fix dep sub error
     return user
 
 

@@ -14,7 +14,7 @@ class JwtAuth(BaseModel):
     public_key_path: Path = BASE_DIR / 'auth' / 'certs' / 'public_key.pem'
     algorithm: str = 'EdDSA'
     access_token_expire_minutes: int = 15
-    refresh_token_expire_days: int = 15
+    refresh_token_expire_days: int = 60 * 24 * 30
 
 
 class DatabaseSettings(BaseSettings):

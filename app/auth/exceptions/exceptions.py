@@ -52,3 +52,15 @@ class UserAlreadyLoggedgError(BaseAPIException):
 class RegistrationFailedError(BaseAPIException):
     def __init__(self, detail: str = "Registration failed due to internal error"):
         super().__init__(detail=detail, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class SetCookieFailedError(BaseAPIException):
+    def __init__(self, detail: str = "Set cookie failed due to interanl error"):
+        super().__init__(detail=detail, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class RefreshUserTokenFailesError(BaseAPIException):
+    def __init__(self, detail: str = "Refresh user token failed due to interanl error"):
+        super().__init__(detail=detail, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class LogoutUserFailedError(BaseAPIException):
+    def __init__(self, detail: str = "logout user failed due to interanl error"):
+        super().__init__(detail=detail, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
