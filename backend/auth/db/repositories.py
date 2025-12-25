@@ -16,7 +16,7 @@ from exceptions.exceptions import (
 )
 
 from db.db_manager import db_manager
-from models.users import RefreshToken, User
+from db.models.users import RefreshToken, User
 
 from utils.logging import logger
 
@@ -180,3 +180,8 @@ class RefreshTokensRepo:
             logger.exception(f"Неожиданная ошибка при аннулировании refresh токенов для user_id {user_id}: {e}")
             raise RepositoryInternalError("Не удалось аннулировать refresh токены из-за неожиданной ошибки.") from e
 
+    @staticmethod
+    async def delete_refresh_token(token_obj: RefreshToken) -> None:
+        logger.debug(f"Попытка аннулировать refresh токен: {token_obj}")
+        async with db_manager.session_factory() as session:
+            await session.delete(token_obj)

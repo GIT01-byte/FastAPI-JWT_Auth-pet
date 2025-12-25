@@ -42,13 +42,23 @@ class InvalidPasswordError(BaseAPIException):
 
 
 # Исключения токенов
-class TokenExpiredError(BaseAPIException):
-    def __init__(self, detail: str = "Token has expired"):
+class MissingAccessError(BaseAPIException):
+    def __init__(self, detail: str = "Missing access token"):
         super().__init__(detail=detail, status_code=status.HTTP_401_UNAUTHORIZED)
 
 
-class TokenRevokedError(BaseAPIException):
-    def __init__(self, detail: str = "Token has been revoked"):
+class RefreshTokenNotFoundError(BaseAPIException):
+    def __init__(self, detail: str = "Refresh token not found or revoked"):
+        super().__init__(detail=detail, status_code=status.HTTP_404_NOT_FOUND)
+
+
+class RefreshTokenExpiredError(BaseAPIException):
+    def __init__(self, detail: str = "Refresh token has expired now"):
+        super().__init__(detail=detail, status_code=status.HTTP_401_UNAUTHORIZED)
+
+
+class AccessTokenRevokedError(BaseAPIException):
+    def __init__(self, detail: str = "Access token revoked"):
         super().__init__(detail=detail, status_code=status.HTTP_401_UNAUTHORIZED)
 
 
@@ -62,12 +72,12 @@ class InvalidTokenError(BaseAPIException):
         super().__init__(detail=detail, status_code=status.HTTP_401_UNAUTHORIZED)
 
 
+# Исключения обработчиков данных пользователей
 class UserInactiveError(BaseAPIException):
     def __init__(self, detail: str = "User is not active"):
         super().__init__(detail=detail, status_code=status.HTTP_403_FORBIDDEN)
 
 
-# Исключения обработчиков данных пользователей
 class UserNotFoundError(EntityNotFoundError):
     def __init__(self, detail: str = "User not found"):
         super().__init__(detail=detail)
@@ -94,8 +104,8 @@ class SetCookieFailedError(BaseAPIException):
         super().__init__(detail=detail, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-class RefreshUserTokenFailesError(BaseAPIException):
-    def __init__(self, detail: str = "Refresh user token failed due to interanal error"):
+class RefreshUserTokensFailedError(BaseAPIException):
+    def __init__(self, detail: str = "Refresh user tokens failed due to interanal error"):
         super().__init__(detail=detail, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

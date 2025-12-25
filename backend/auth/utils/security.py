@@ -7,7 +7,7 @@ import bcrypt
 import hashlib
 
 from exceptions.exceptions import InvalidTokenError
-from config import settings
+from settings import settings
 
 from utils.logging import logger
 
@@ -45,6 +45,10 @@ def create_refresh_token() -> tuple[str, str]:
     token_hash = hashlib.sha256(token.encode()).hexdigest()
     logger.info(f"Создан refresh-токен для пользователя.")
     return token, token_hash
+
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def decode_access_token(token: str) -> dict[str, Any]:

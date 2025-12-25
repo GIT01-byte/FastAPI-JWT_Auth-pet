@@ -1,33 +1,30 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, Response
-from fastapi.security import HTTPAuthorizationCredentials, OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, Request, Response
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app_redis.client import get_redis_client
-from db.users_repository import RefreshTokensRepo, UsersRepo
+from db.repositories import RefreshTokensRepo
 from exceptions.exceptions import (
     InvalidCredentialsError,
     LogoutUserFailedError,
     PasswordRequiredError,
+    RefreshUserTokensFailedError,
     RegistrationFailedError,
     UserAlreadyExistsError,
-    UserNotFoundError,
 )
 from schemas.users import (
-    LoginRequest,
+    RefreshRequest,
     RegisterRequest,
     TokenResponse,
-    UserInDB,
 )
 from services.auth_service import (
-    authenticate_user,
-    register_user_to_db
+    AuthService,
 )
 from deps.auth_deps import (
     clear_cookie_with_tokens,
     get_current_active_user,
 )
-from utils.security import decode_access_token
-from config import settings
+from settings import settings
 
 from utils.logging import logger
 
@@ -39,36 +36,37 @@ auth_usage = APIRouter()
 dev_usage = APIRouter()
 
 
-
 @auth.post('/login/', response_model=TokenResponse)
-async def login(
+async def auth_login(
     response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ):
+    auth_service = AuthService()
     if not form_data.password:
         raise PasswordRequiredError()
-    
-    user = await authenticate_user(response, form_data.username, form_data.password)
+
+    user = await auth_service.authenticate_user(response, form_data.username, form_data.password)
 
     if not user:
         raise InvalidCredentialsError()
-    
+
     return TokenResponse(
-        access_token=user['access_token'],
-        refresh_token=user['refresh_token'],
+        access_token=user.access_token,
+        refresh_token=user.refresh_token,
     )
 
 
-@auth.post('/register')
-async def register_user(request: RegisterRequest):
+@auth.post('/register/')
+async def auth_register_user(request: RegisterRequest):
     try:
+        auth_service = AuthService()
         # Подготавливаем payload без пароля (он хешируется внутри)
         payload = {
             'username': request.username,
             'email': request.email,
             'profile': request.profile,
         }
-        new_user = await register_user_to_db(payload, request.password)
+        new_user = await auth_service.register_user_to_db(payload=payload, password=request.password)
 
         return {'message': f'Register user: {new_user!r} is successfuly!'}
 
@@ -87,23 +85,27 @@ async def register_user(request: RegisterRequest):
         raise RegistrationFailedError()
 
 
-# @auth.post(
-#     '/refresh/',
-#     response_model=TokenResponse,
-#     response_model_exclude_none=True,
-# )
-# def auth_refresh_jwt(
-#     user: UserInDB = Depends(get_current_auth_user_for_refresh)
-# ):
-#     user_id = str(user.id)
-#     access_token = create_access_token(user_id)
-#     return TokenResponse(
-#         access_token=access_token,
-#     )
+# TODO refresh tokens
+@auth.post('/refresh/', response_model=TokenResponse)
+async def auth_refresh_jwt(
+    response: Response,
+    data: RefreshRequest,
+):
+    try:
+        auth_service = AuthService()
+        pair = await auth_service.refresh(response=response, raw_token=data.refresh_token)
+        return TokenResponse(
+            access_token=pair.access_token,
+            refresh_token=pair.refresh_token,
+        )
+
+    except Exception as ex:
+        logger.error(f'Refresh tokens failed: {ex}')
+        raise RefreshUserTokensFailedError()
 
 
 @auth.post("/logout/")
-async def logout_user(
+async def auth_logout_user(
     response: Response,
     redis=Depends(get_redis_client),
     user=Depends(get_current_active_user),

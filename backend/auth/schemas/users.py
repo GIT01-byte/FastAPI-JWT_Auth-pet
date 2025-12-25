@@ -4,11 +4,10 @@ from fastapi import Form
 from pydantic import BaseModel, EmailStr, Field
 
 
-class UserInDB(BaseModel):
+class UserRead(BaseModel):
     id: int
     username: str
     email: EmailStr | None = None
-    hashed_password: bytes
     is_active: bool
 
     class Config:
@@ -22,7 +21,7 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: str | None = None
+    refresh_token: str
     token_type: str = "bearer"
 
 

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 from sqladmin import Admin, ModelView
 
-from models.users import User
+from db.models.users import User
 
 
 class UserAdminView(ModelView, model=User):
