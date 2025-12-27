@@ -64,10 +64,9 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus.yaml:/etc/prometheus/prometheus.yaml
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
-    depends_on:
-      - backend
+
 
   grafana:
     image: grafana/grafana:latest

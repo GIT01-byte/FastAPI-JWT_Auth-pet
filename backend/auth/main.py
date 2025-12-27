@@ -33,13 +33,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Подключаем api роутеры
 app.include_router(api_routers)
-
-# Подключаем админ панель
-setup_admin(app, db_manager.engine)
 
 # Подключаем prometheus метрики
 Instrumentator().instrument(app).expose(app)
+
+# Подключаем админ панель
+# setup_admin(app, db_manager.engine)
 
 
 if __name__ == "__main__":
