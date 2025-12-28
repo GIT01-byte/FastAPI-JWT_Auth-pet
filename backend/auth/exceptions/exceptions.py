@@ -72,6 +72,10 @@ class InvalidTokenError(BaseAPIException):
         super().__init__(detail=detail, status_code=status.HTTP_401_UNAUTHORIZED)
 
 
+class RefreshTokenNotReqiredError(BaseAPIException):
+    def __init__(self, detail: str = "Refresh token not reqired"):
+        super().__init__(detail=detail, status_code=status.HTTP_401_UNAUTHORIZED)
+
 # Исключения обработчиков данных пользователей
 class UserInactiveError(BaseAPIException):
     def __init__(self, detail: str = "User is not active"):
@@ -115,7 +119,7 @@ class LogoutUserFailedError(BaseAPIException):
 
 
 class ValidateAuthUserFailedError(BaseAPIException):
-    def __init__(self, detail: str = "validate auth user failed due to interanal error"):
+    def __init__(self, detail: str = "Validate auth user failed due to interanal error"):
         super().__init__(detail=detail, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

@@ -1,20 +1,23 @@
 from datetime import datetime, timedelta, timezone
+from typing import NoReturn
 from fastapi import Response
 
 from core.db.repositories import UsersRepo, RefreshTokensRepo
-from core.models.users import User
+from core.models.users import RefreshToken, User
 from core.schemas.users import TokenResponse, UserRead
 from core.app_redis.client import get_redis_client
 from exceptions.exceptions import (
     RedisConnectionError,
     RefreshTokenExpiredError,
     RefreshTokenNotFoundError,
+    RepositoryInternalError,
     RevokeTokenFailedError,
     InvalidPasswordError,
     UserAlreadyExistsError,
     UserInactiveError,
     UserNotFoundError,
     RegistrationFailedError,
+    ValidateAuthUserFailedError,
 )
 from utils.security import (
     check_password,
@@ -24,109 +27,124 @@ from utils.security import (
     hash_token,
 )
 from deps.auth_deps import (
-    clear_cookie_with_tokens,
     set_tokens_cookie,
 )
 
 from core.settings import settings
 from utils.logging import logger
 
-# TODO Вынести в общий класс и отрефакторить код по принципу DRY
+
 class AuthService():
-    async def _get_user_for_login(self, login: str) -> User:
+    async def _get_user_for_token(self, user_id: int) -> User:
         """
-        Docstring для _get_user_from_db
-        
-        :param self: Описание
-        :param login: Описание
-        :type login: str
-        :return: Описание
-        :rtype: User
-        """
-        # Получение пользователя из БД
-        user = await UsersRepo.select_user_by_username(login)
+        Приватный вспомогательный метод для получения пользователя из базы данных
+        по user_id с проверкой его статуса активности.
 
-        # Проверка на нахождение
-        if not user:
-            logger.warning(f"Пользователь с логином {login!r} не найден в базе данных.")
-            raise UserNotFoundError()
-        logger.debug(f"Пользователь {login!r} найден в БД (ID: {user.id}).")
+        Params:
+            user_id(int): ID пользователя
 
-        # Проверка на активность
-        if not user.is_active:
-            logger.warning(f"Пользователь {login!r} неактивен.")
-            raise UserInactiveError()
-        logger.debug(f"Пользователь {login!r} активен.")
-        return user
+        Returns:
+            User: Пользователь, соответствующий переданному id.
 
-    async def _get_user_for_token(self, user_id: int):
-        """
-        Docstring для _get_user_from_db
-        
-        :param self: Описание
-        :param login: Описание
-        :type login: str
-        :return: Описание
-        :rtype: User
+        Raises:
+            UserNotFoundError: Если пользователь с указанным логином не найден.
+            UserInactiveError: Если пользователь с данным логином неактивен.
         """
         # Получение пользователя из БД
         user = await UsersRepo.select_user_by_user_id(user_id)
 
-        # Проверка на нахождение
+        # Проверка наличия пользователя
         if not user:
-            logger.warning(f"Пользователь (ID: {user_id}) не найден в базе данных.")
+            logger.warning(f"Пользователь с логином '{user_id}' не найден в базе данных.")
             raise UserNotFoundError()
-        logger.debug(f"Пользователь (ID: {user.id}) найден в БД .")
+        else:
+            logger.debug(f"Пользователь '{user_id}' найден в БД (ID: {user.id}).")
 
-        # Проверка на активность
+        # Проверка статуса активности пользователя
         if not user.is_active:
-            logger.warning(f"Пользователь (ID: {user.id}) неактивен.")
+            logger.warning(f"Пользователь '{user_id}' неактивен.")
             raise UserInactiveError()
-        logger.debug(f"Пользователь (ID: {user.id}) активен.")
+        else:
+            logger.debug(f"Пользователь '{user_id}' активен.")
+
         return user
 
-    async def _get_vaild_token(self, raw_token: str):
+    async def _get_valid_token(self, raw_token: str) -> RefreshToken:
         """
-        Docstring для _get_vaild_token
-        
-        :param self: Описание
-        :param raw_token: Описание
-        :type raw_token: str
-        :return: Описание
-        :rtype: Any
+        Приватный вспомогательный метод для проверки валидности токена
+        путем сравнения хэша с сохраненным значением.
+
+        Params:
+            raw_token(str): Строка, представляющая исходный токен.
+
+        Returns:
+            RefreshToken: Объект токена, если токен действителен и не истек срок его действия.
+
+        Raises:
+            RefreshTokenNotFoundError: если токен не найден в хранилище.
+            RefreshTokenExpiredError: если токен устарел.
         """
+        # Хэшируем токен
         token_hash = hash_token(raw_token)
+
+        # Получаем токен из репозитория
         stored = await RefreshTokensRepo.get_refresh_token(token_hash)
         if not stored or stored.revoked:
+            logger.error(f"Токен {raw_token[:8]}... не найден или отозван")
             raise RefreshTokenNotFoundError()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)  # Текущее время UTC
         if stored.expires_at <= now:
+            # Удаляем устаревший токен
             await RefreshTokensRepo.delete_refresh_token(stored)
+            logger.warning(f"Устаревший токен {raw_token[:8]}... удалён")
             raise RefreshTokenExpiredError()
+        
+        logger.info(f"Токен {raw_token[:8]}... успешно проверен")
         return stored
 
     async def _issue_tokens(self, user_id: int) -> tuple[str, str]:
         """
-        Docstring для _issue_tokens
-        
-        :param self: Описание
-        :param user_id: Описание
-        :type user_id: int
-        :return: Описание
-        :rtype: Any
+        Приватный вспомогательный метод для генерации Access и Refresh токенов,
+        а также для сохранения хэша Refresh токена в базе данных.
+
+        Params:
+            user_id(int): ID пользователя, для которого генерируются токены.
+
+        Returns:
+            tuple: Кортеж из Access токена (str) и "сырого" Refresh токена (str)
+
+        Raises:
+            RepositoryInternalError: Если произошла ошибка при сохранении Refresh токена в БД.
         """
-        # Генерация токенов
+        logger.debug(
+            f"Начало генерации токенов для пользователя ID: {user_id}.")
+
+        # 1. Генерация Access токена
         access_token = create_access_token(user_id)
-        refresh_token, refresh_hash = gen_refresh_token()
-        logger.debug(f"Access и Refresh токены сгенерированы для пользователя ID: {user_id}.")
+        logger.debug(
+            f"Access токен сгенерирован для пользователя ID: {user_id}.")
 
-        # Сохранение Refresh токена в БД
+        # 2. Генерация Refresh токена и его хэша
+        refresh_token_raw, refresh_hash = gen_refresh_token()
+        logger.debug(
+            f"Refresh токен (hash: {refresh_hash[:8]}...) сгенерирован для пользователя ID: {user_id}.")
+
+        # 3. Сохранение Refresh токена в БД
         expires_at = datetime.now(
-        timezone.utc) + timedelta(minutes=settings.jwt.refresh_token_expire_days)
-        await RefreshTokensRepo.create_refresh_token(user_id, refresh_hash, expires_at)
-        logger.info(f"Refresh токен сохранен в БД для пользователя ID: {user_id}.")
+            timezone.utc) + timedelta(minutes=settings.jwt.refresh_token_expire_days)
+        logger.debug(f"Refresh токен истекает в: {expires_at.isoformat()}.")
 
-        return access_token, refresh_token
+        try:
+            await RefreshTokensRepo.create_refresh_token(user_id, refresh_hash, expires_at)
+            logger.info(
+                f"Refresh токен (hash: {refresh_hash[:8]}...) успешно сохранен в БД для пользователя ID: {user_id}.")
+        except Exception as e:
+            logger.exception(
+                f"Ошибка при сохранении Refresh токена в БД для пользователя ID: {user_id}: {e}")
+            raise RepositoryInternalError(
+                "Failed to save refresh token to database.") from e
+
+        return access_token, refresh_token_raw
 
     async def authenticate_user(self, response: Response, login: str, password: str) -> TokenResponse:
         """
@@ -134,13 +152,13 @@ class AuthService():
         Если аутентификация успешна, генерирует токены (access и refresh)
         вставляет hash refresh в БД и устанавливает их в HTTP-куки
 
-        Args:
-            response: Объект Response FastAPI для установки куки
-            login: Логин пользователя (username)
-            password: Пароль пользователя
+        Params:
+            response(Response): Объект Response FastAPI для установки куки
+            login(str): Логин пользователя (username)
+            password(str): Пароль пользователя
 
         Returns:
-            Словарь с информацией о пользователе и сгенерированными токенами
+            TokenResponse: Словарь с информацией о пользователе и сгенерированными токенами
 
         Raises:
             UserNotFoundError: Если пользователь с указанным логином не найден
@@ -152,7 +170,7 @@ class AuthService():
         logger.info(f"Начало аутентификации для пользователя: {login!r}")
         try:
             # 1. Получение пользоваетеля из БД и проверка на активность
-            user_data_from_db = await self._get_user_for_login(login=login)
+            user_data_from_db = await self._get_user_for_token(login=login)
 
             # 2. Проверка пароля
             if not check_password(
@@ -170,40 +188,44 @@ class AuthService():
                 email=user_data_from_db.email,
                 is_active=user_data_from_db.is_active,
             )
-            logger.debug(f"Данные пользователя {login!r} успешно преобразованы в Pydantic модель.")
+            logger.debug(
+                f"Данные пользователя {login!r} успешно преобразованы в Pydantic модель.")
 
             # 4. Генерация токенов и сохранение Refresh токена в БД
             user_id = user.id
             access_token, refresh_token = await self._issue_tokens(user_id=user_id)
-            
+
             # 5. Установка токенов в куки
-            set_tokens_cookie(response=response, access_token=access_token, refresh_token=refresh_token)
-            logger.info(f"Куки с токенами установлены для пользователя ID: {user.id}.")
-        
-            logger.info(f"Пользователь {user.username!r} успешно аутентифицирован.")
+            set_tokens_cookie(
+                response=response, access_token=access_token, refresh_token=refresh_token)
+            logger.info(
+                f"Куки с токенами установлены для пользователя ID: {user.id}.")
+
+            logger.info(
+                f"Пользователь {user.username!r} успешно аутентифицирован.")
             return TokenResponse(
                 access_token=access_token,
                 refresh_token=refresh_token,
             )
-        
+
         except (UserNotFoundError, InvalidPasswordError, UserInactiveError) as e:
             raise e
         except Exception as e:
             logger.exception(
                 f"Неожиданная ошибка при аутентификации пользователя {login!r}: {e}")
-            raise RegistrationFailedError() from e
+            raise ValidateAuthUserFailedError() from e
 
     async def register_user_to_db(self, payload: dict, password: str) -> str:
         """
         Регистрирует нового пользователя в базе данных
         Хеширует пароль перед сохранением
 
-        Args:
-            payload: Словарь с данными пользователя (кроме пароля)
-            password: Пароль пользователя в открытом виде
+        Params:
+            payload(dict): Словарь с данными пользователя (кроме пароля)
+            password(str): Пароль пользователя в открытом виде
 
         Returns:
-            Имя пользователя (username) успешно зарегистрированного пользователя
+            str: Имя пользователя (username) успешно зарегистрированного пользователя
 
         Raises:
             UserAlreadyExistsError: Если пользователь с таким именем или email уже существует
@@ -243,17 +265,18 @@ class AuthService():
             raise RegistrationFailedError(
                 f"Internal error during registration: {e}") from e
 
-    async def revoke_token(self, jti: str, expire: int):
+    async def revoke_token(self, jti: str, expire: int) -> NoReturn:
         """
         Отзывает токен, добавляя его идентификатор (jti) в черный список Redis
         Токен считается отозванным, если его jti присутствует в Redis
 
-        Args:
+        Params:
             jti: Уникальный идентификатор токена (JWT ID)
             expire: Время жизни записи в Redis в секундах (должно соответствовать
                     времени жизни самого токена для надежности)
         """
         logger.debug(f"Начало отзыва токена JTI: {jti!r}.")
+
         try:
             # 1. Получение клиента Redis
             redis_conn = await get_redis_client()
@@ -262,32 +285,48 @@ class AuthService():
 
                 # 2. Добавление JTI в черный список Redis с заданным временем жизни
                 await redis_conn.setex(f"revoked:{jti}", expire, "1")
-                logger.info(f"Токен JTI: {jti!r} успешно отозван и добавлен в черный список Redis на {expire} секунд.")
+                logger.info(
+                    f"Токен JTI: {jti!r} успешно отозван и добавлен в черный список Redis на {expire} секунд.")
 
             logger.exception("Ошибка при подключени с Redis")
             raise RedisConnectionError()
-        
+
         except RedisConnectionError as e:
             raise e
         except Exception as e:
-            logger.exception(f"Ошибка при отзыве токена JTI: {jti!r} в Redis: {e}")
-            raise RevokeTokenFailedError("Failed to revoke token due to internal error.") from e
+            logger.exception(
+                f"Ошибка при отзыве токена JTI: {jti!r} в Redis: {e}")
+            raise RevokeTokenFailedError(
+                "Failed to revoke token due to internal error.") from e
+    
+    async def refresh(self, response: Response, raw_token: str) -> TokenResponse:
+        """
+        Процедура обновления токенов аутентификации пользователя.
 
-    async def refresh(self, response: Response, raw_token: str):
-        stored = await self._get_vaild_token(raw_token)
+        Params:
+            response(Response): Объект Response FastAPI
+            raw_token(str): Строка токена
+        
+        Returns:
+            TokenResponse: Объект-парой с новыми токенами
+        
+        Raises:
+            RefreshTokenNotRequiredError: Если токен не найден
+        """
+        logger.info("Начало процедуры обновления токенов")
+
+        # Получаем пользователя по данным из токена
+        stored = await self._get_valid_token(raw_token)
         user = await self._get_user_for_token(stored.user_id)
         await RefreshTokensRepo.delete_refresh_token(stored)
 
-        # Генерация токенов и сохранение Refresh токена в БД
+        # Генерация новых токенов и сохранение Refresh токена в БД
         user_id = user.id
         access_token, refresh_token = await self._issue_tokens(user_id=user_id)
 
         # Установка токенов в куки
-        clear_cookie_with_tokens(response=response)
         set_tokens_cookie(response=response, access_token=access_token, refresh_token=refresh_token)
         logger.info(f"Куки с токенами установлены для пользователя ID: {user.id}.")
 
-        return TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-        )
+        logger.info("Процедура обновления токенов завершена успешно")
+        return TokenResponse(access_token=access_token, refresh_token=refresh_token)

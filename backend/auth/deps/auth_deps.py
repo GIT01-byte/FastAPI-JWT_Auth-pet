@@ -5,11 +5,6 @@ from jwt import PyJWTError
 
 from core.app_redis.client import get_redis_client
 from core.db.repositories import UsersRepo
-from utils.security import (
-    REFRESH_TOKEN_TYPE,
-    ACCESS_TOKEN_TYPE,
-    decode_access_token,
-)
 from exceptions.exceptions import (
     InvalidTokenError,
     SetCookieFailedError,
@@ -17,6 +12,12 @@ from exceptions.exceptions import (
     UserInactiveError,
     UserNotFoundError,
 )
+from utils.security import (
+    REFRESH_TOKEN_TYPE,
+    ACCESS_TOKEN_TYPE,
+    decode_access_token,
+)
+
 from core.settings import settings
 from utils.logging import logger
 
@@ -32,20 +33,24 @@ def clear_cookie_with_tokens(response: Response) -> Response:
     """
     response.delete_cookie(ACCESS_TOKEN_TYPE)
     response.delete_cookie(REFRESH_TOKEN_TYPE)
+
     return response
 
-# TODO очистить докстирнг
+
 def set_tokens_cookie(response: Response, access_token: str, refresh_token: str):
     """
-    Устанавливает токен в куки с настройками безопасности.
+    Устанавливает и обновляет токены в куки с настройками безопасности.
 
-    :param key: Имя ключа (обычно 'access_token' или 'refresh_token')
-    :param value: Значение токена
-    :param max_age: Срок жизни токена в секундах
+    :param access_token: Access токен для установки
+    :param access_token: Refresh токен для установки
     :param response: Объект Response FastAPI для установки куки
     :raise SetCookieFailedError: Если установка куки прошла неудачно
     """
     try:
+        # 1. Очищаем куки
+        clear_cookie_with_tokens(response=response)
+        
+        # 2. Устанавляиваем токены в куки 
         response.set_cookie(
             key=ACCESS_TOKEN_TYPE,
             value=access_token,

@@ -14,11 +14,6 @@ class UserRead(BaseModel):
         from_attributes = True
 
 
-class LoginRequest(BaseModel):
-    login: str = Form()
-    password: str = Form()
-
-
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
@@ -27,6 +22,11 @@ class TokenResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class LoginRequest(BaseModel):
+    login: str = Form()
+    password: str = Form()
 
 
 class RegisterRequest(BaseModel):
