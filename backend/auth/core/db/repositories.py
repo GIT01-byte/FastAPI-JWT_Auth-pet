@@ -185,3 +185,4 @@ class RefreshTokensRepo:
         logger.debug(f"Попытка аннулировать refresh токен: {token_obj}")
         async with db_manager.session_factory() as session:
             await session.delete(token_obj)
+            await session.commit()

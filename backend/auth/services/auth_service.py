@@ -35,7 +35,7 @@ from utils.logging import logger
 
 
 class AuthService():
-    async def _get_user_for_token(self, user_id: int) -> User:
+    async def _get_user_by_user_id(self, user_id: int) -> User:
         """
         Приватный вспомогательный метод для получения пользователя из базы данных
         по user_id с проверкой его статуса активности.
@@ -66,6 +66,40 @@ class AuthService():
             raise UserInactiveError()
         else:
             logger.debug(f"Пользователь '{user_id}' активен.")
+
+        return user
+    
+    async def _get_user_by_login(self, login: str) -> User:
+        """
+        Приватный вспомогательный метод для получения пользователя из базы данных
+        по логину с проверкой его статуса активности.
+
+        Args:
+            login(str): Строка, содержащая логин пользователя.
+
+        Returns:
+            User: Пользователь, соответствующий переданному логину.
+
+        Raises:
+            UserNotFoundError: Если пользователь с указанным логином не найден.
+            UserInactiveError: Если пользователь с данным логином неактивен.
+        """
+        # Получение пользователя из БД
+        user = await UsersRepo.select_user_by_username(login)
+
+        # Проверка наличия пользователя
+        if not user:
+            logger.warning(f"Пользователь с логином '{login}' не найден в базе данных.")
+            raise UserNotFoundError()
+        else:
+            logger.debug(f"Пользователь '{login}' найден в БД (ID: {user.id}).")
+
+        # Проверка статуса активности пользователя
+        if not user.is_active:
+            logger.warning(f"Пользователь '{login}' неактивен.")
+            raise UserInactiveError()
+        else:
+            logger.debug(f"Пользователь '{login}' активен.")
 
         return user
 
@@ -170,7 +204,7 @@ class AuthService():
         logger.info(f"Начало аутентификации для пользователя: {login!r}")
         try:
             # 1. Получение пользоваетеля из БД и проверка на активность
-            user_data_from_db = await self._get_user_for_token(login=login)
+            user_data_from_db = await self._get_user_by_login(login=login)
 
             # 2. Проверка пароля
             if not check_password(
@@ -317,7 +351,7 @@ class AuthService():
 
         # Получаем пользователя по данным из токена
         stored = await self._get_valid_token(raw_token)
-        user = await self._get_user_for_token(stored.user_id)
+        user = await self._get_user_by_user_id(stored.user_id)
         await RefreshTokensRepo.delete_refresh_token(stored)
 
         # Генерация новых токенов и сохранение Refresh токена в БД
