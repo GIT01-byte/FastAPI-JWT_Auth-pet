@@ -3,7 +3,7 @@ import os
 import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from settings import settings
+from core.settings import settings
 
 _redis_client: Redis | None = None
 

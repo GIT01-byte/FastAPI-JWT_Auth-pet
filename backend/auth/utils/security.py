@@ -7,7 +7,7 @@ import bcrypt
 import hashlib
 
 from exceptions.exceptions import InvalidTokenError
-from settings import settings
+from core.settings import settings
 
 from utils.logging import logger
 

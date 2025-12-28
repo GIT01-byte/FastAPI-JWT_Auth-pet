@@ -15,8 +15,8 @@ from exceptions.exceptions import (
     RepositoryInternalError
 )
 
-from db.db_manager import db_manager
-from db.models.users import RefreshToken, User
+from core.db.db_manager import db_manager
+from db.core.models.users import RefreshToken, User
 
 from utils.logging import logger
 

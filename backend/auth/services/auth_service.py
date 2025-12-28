@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta, timezone
 from fastapi import Response
 
-from db.repositories import UsersRepo, RefreshTokensRepo
-from db.models.users import User
-from schemas.users import TokenResponse, UserRead
-from app_redis.client import get_redis_client
+from core.db.repositories import UsersRepo, RefreshTokensRepo
+from db.core.models.users import User
+from core.schemas.users import TokenResponse, UserRead
+from core.app_redis.client import get_redis_client
 from exceptions.exceptions import (
     RedisConnectionError,
     RefreshTokenExpiredError,
@@ -28,7 +28,7 @@ from deps.auth_deps import (
     set_tokens_cookie,
 )
 
-from settings import settings
+from core.settings import settings
 from utils.logging import logger
 
 # TODO Вынести в общий класс и отрефакторить код по принципу DRY

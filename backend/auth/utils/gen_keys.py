@@ -6,7 +6,7 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 
 # Определяем путь к директории для ключей
 BASE_DIR = Path(__file__).parent.parent
-KEY_DIR = f"{BASE_DIR}/certs"
+KEY_DIR = f"{BASE_DIR}/core/security_keys"
 
 # 0. Проверка и создание директории, если её нет
 if not os.path.exists(KEY_DIR):

@@ -1,30 +1,23 @@
-from datetime import datetime, timezone
-from typing import Dict
-from fastapi import Depends, Request, Response
+from fastapi import Depends, Response
 from fastapi.security import OAuth2PasswordBearer
 from redis import Redis
 from jwt import PyJWTError
 
-from app_redis.client import get_redis_client
-from db.repositories import UsersRepo, RefreshTokensRepo
+from core.app_redis.client import get_redis_client
+from core.db.repositories import UsersRepo
 from utils.security import (
     REFRESH_TOKEN_TYPE,
     ACCESS_TOKEN_TYPE,
     decode_access_token,
-    hash_token,
 )
 from exceptions.exceptions import (
-    CookieMissingTokenError,
     InvalidTokenError,
-    MissingAccessError,
-    RefreshTokenExpiredError,
-    RefreshTokenNotFoundError,
     SetCookieFailedError,
     AccessTokenRevokedError,
     UserInactiveError,
     UserNotFoundError,
 )
-from settings import settings
+from core.settings import settings
 from utils.logging import logger
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login/")

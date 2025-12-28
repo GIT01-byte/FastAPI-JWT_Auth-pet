@@ -3,8 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from db.models.user_admin import setup_admin
-from db.db_manager import db_manager
+from core.models.user_admin import setup_admin
+from core.db.db_manager import db_manager
 from api import api_routers
 
 from utils.logging import logger
@@ -40,7 +40,7 @@ app.include_router(api_routers)
 Instrumentator().instrument(app).expose(app)
 
 # Подключаем админ панель
-# setup_admin(app, db_manager.engine)
+setup_admin(app, db_manager.engine)
 
 
 if __name__ == "__main__":

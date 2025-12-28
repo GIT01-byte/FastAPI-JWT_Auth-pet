@@ -2,8 +2,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app_redis.client import get_redis_client
-from db.repositories import RefreshTokensRepo
+from core.app_redis.client import get_redis_client
+from core.db.repositories import RefreshTokensRepo
 from exceptions.exceptions import (
     InvalidCredentialsError,
     LogoutUserFailedError,
@@ -12,7 +12,7 @@ from exceptions.exceptions import (
     RegistrationFailedError,
     UserAlreadyExistsError,
 )
-from schemas.users import (
+from core.schemas.users import (
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
@@ -24,7 +24,7 @@ from deps.auth_deps import (
     clear_cookie_with_tokens,
     get_current_active_user,
 )
-from settings import settings
+from auth.core.settings import settings
 
 from utils.logging import logger
 
