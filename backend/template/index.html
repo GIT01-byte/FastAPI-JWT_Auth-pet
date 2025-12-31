@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+
+        .auth-container {
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        h1, h2 {
+            color: #333;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        label {
+            text-align: left;
+            margin-bottom: 0.5rem;
+            color: #555;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"] {
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+
+        button {
+            padding: 0.75rem 1rem;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .message {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        #userInfo {
+            margin-top: 2rem;
+            border: 1px solid #eee;
+            padding: 1rem;
+            border-radius: 4px;
+            text-align: left;
+        }
+
+        #userInfoData {
+            white-space: pre-wrap; /* Сохраняет форматирование */
+            font-family: monospace;
+        }
+
+        .loading {
+            opacity: 0.7;
+            cursor: wait;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1s steps(5, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { color: rgba(0,0,0,0); text-shadow: .25em 0 0 rgba(0,0,0,0);}
+            40% { color: black; text-shadow: .25em 0 0 rgba(0,0,0,0);}
+            60% { color: black; text-shadow: .25em 0 0 black;}
+            80%, 100% { color: black; text-shadow: .25em 0 0 black;}
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="auth-container">
+    <h1>Authentication</h1>
+
+    <form id="loginForm">
+        <h2>Login</h2>
+        <label for="loginUsername">Username:</label>
+        <input type="text" id="loginUsername" name="username" required><br>
+        <label for="loginPassword">Password:</label>
+        <input type="password" id="loginPassword" name="password" required><br>
+        <button type="button" onclick="login()">Login</button>
+        <p id="loginMessage" class="message"></p>
+    </form>
+
+    <form id="registerForm">
+        <h2>Register</h2>
+        <label for="registerUsername">Username:</label>
+        <input type="text" id="registerUsername" name="username" required><br>
+        <label for="registerEmail">Email:</label>
+        <input type="email" id="registerEmail" name="email" required><br>
+        <label for="registerPassword">Password:</label>
+        <input type="password" id="registerPassword" name="password" required><br>
+        <button type="button" onclick="register()">Register</button>
+        <p id="registerMessage" class="message"></p>
+    </form>
+
+    <form id="refreshTokenForm">
+        <h2>Refresh Token</h2>
+        <label for="refreshToken">Refresh Token:</label>
+        <input type="text" id="refreshToken" name="refresh_token"><br>
+        <button type="button" onclick="refreshToken()">Refresh</button>
+        <p id="refreshMessage" class="message"></p>
+    </form>
+
+    <button onclick="logout()">Logout</button>
+
+    <div id="userInfo">
+        <h2>User Info</h2>
+        <button onclick="getUserInfo()">Get User Info</button>
+        <pre id="userInfoData"></pre>
+    </div>
+
+</div>
+
+<script>
+    const API_ENDPOINT = 'http://localhost:8080/users';
+
+    async function login() {
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+        const loginButton = document.querySelector('#loginForm button');
+        const loginMessageElement = document.getElementById("loginMessage");
+
+        try {
+            loginButton.classList.add('loading');
+            loginMessageElement.textContent = "";
+
+            const formData = new URLSearchParams();
+            formData.append('grant_type', 'password');
+            formData.append('username', username);
+            formData.append('password', password);
+            formData.append('scope', '');
+            formData.append('client_id', '');
+            formData.append('client_secret', '');
+
+            const response = await fetch(`${API_ENDPOINT}/login/`, {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                localStorage.setItem('access_token', data.access_token);
+                localStorage.setItem('refresh_token', data.refresh_token);
+                loginMessageElement.textContent = "Login successful";
+                loginMessageElement.className = "message success";
+            } else {
+                loginMessageElement.textContent = data.detail || "Login failed";
+                loginMessageElement.className = "message error";
+                console.error('Login failed:', data);
+            }
+        } catch (error) {
+            loginMessageElement.textContent = "Network error occurred.";
+            loginMessageElement.className = "message error";
+            console.error("Network error:", error);
+        } finally {
+            loginButton.classList.remove('loading');
+        }
+    }
+
+
+    async function register() {
+        const username = document.getElementById('registerUsername').value;
+        const email = document.getElementById('registerEmail').value;
+        const password = document.getElementById('registerPassword').value;
+        const registerButton = document.querySelector('#registerForm button');
+        const registerMessageElement = document.getElementById("registerMessage");
+
+        try {
+            registerButton.classList.add('loading');
+            registerMessageElement.textContent = "";
+
+            const data = {
+                username: username,
+                email: email,
+                profile: {}, // Можно добавить данные профиля
+                password: password
+            };
+
+            const response = await fetch(`${API_ENDPOINT}/register/`, {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            const responseData = await response.json();
+
+            if (response.ok) {
+                registerMessageElement.textContent = "Registration successful";
+                registerMessageElement.className = "message success";
+                console.log('Registration successful');
+            } else {
+                registerMessageElement.textContent = responseData.detail || "Registration failed";
+                registerMessageElement.className = "message error";
+                console.error('Registration failed:', responseData);
+            }
+        } catch (error) {
+            registerMessageElement.textContent = "Network error occurred.";
+            registerMessageElement.className = "message error";
+            console.error("Network error:", error);
+        } finally {
+            registerButton.classList.remove('loading');
+        }
+    }
+
+    async function refreshToken() {
+        const refreshTokenValue = document.getElementById('refreshToken').value;
+        const refreshTokenButton = document.querySelector('#refreshTokenForm button');
+        const refreshMessageElement = document.getElementById("refreshMessage");
+
+        if (!refreshTokenValue) {
+            refreshMessageElement.textContent = "Refresh Token is required.";
+            refreshMessageElement.className = "message error";
+            return;
+        }
+
+        try {
+            refreshTokenButton.classList.add('loading');
+            refreshMessageElement.textContent = "";
+
+            const data = {
+                refresh_token: refreshTokenValue
+            };
+
+
+            const response = await fetch(`${API_ENDPOINT}/tokens/refresh/`, {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            const responseData = await response.json();
+
+            if (response.ok) {
+                localStorage.setItem('access_token', responseData.access_token);
+                localStorage.setItem('refresh_token', responseData.refresh_token);
+                refreshMessageElement.textContent = "Token refresh successful";
+                refreshMessageElement.className = "message success";
+            } else {
+                refreshMessageElement.textContent = responseData.detail || "Token refresh failed";
+                refreshMessageElement.className = "message error";
+                console.error('Token refresh failed:', responseData);
+            }
+        } catch (error) {
+            refreshMessageElement.textContent = "Network error occurred.";
+            refreshMessageElement.className = "message error";
+            console.error("Network error:", error);
+        } finally {
+            refreshTokenButton.classList.remove('loading');
+        }
+    }
+
+    async function logout() {
+        const accessToken = localStorage.getItem('access_token');
+
+        try {
+            const response = await fetch(`${API_ENDPOINT}/logout/`, {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json',
+                    'Authorization': `Bearer ${accessToken}` // Если требуется авторизация
+                }
+            });
+
+            if (response.ok) {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('refresh_token');
+                alert('Logged out successfully');
+            } else {
+                const error = await response.json();
+                console.error('Logout failed:', error);
+                alert('Logout failed.  Check console for details.');
+            }
+        } catch (error) {
+            console.error("Network error:", error);
+            alert('Logout failed due to a network error. Check console for details.');
+        }
+    }
+
+    async function getUserInfo() {
+        const accessToken = localStorage.getItem('access_token');
+        const userInfoData = document.getElementById('userInfoData');
+
+        try {
+            const response = await fetch(`${API_ENDPOINT}/me/`, {
+                method: 'GET',
+                headers: {
+                    'accept': 'application/json',
+                    'Authorization': `Bearer ${accessToken}` // Если требуется авторизация
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                userInfoData.textContent = JSON.stringify(data, null, 2);
+            } else {
+                const error = await response.json();
+                userInfoData.textContent = 'Error: ' + JSON.stringify(error, null, 2);
+                console.error('Get user info failed:', error);
+            }
+        } catch (error) {
+            userInfoData.textContent = 'Error: Network error occurred.';
+            console.error("Network error:", error);
+        }
+    }
+    document.getElementById('refreshTokenForm').querySelector('button').addEventListener('click', refreshToken);
+</script>
+
+</body>
+</html>
