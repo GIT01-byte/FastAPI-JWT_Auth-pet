@@ -23,7 +23,7 @@ cd "Fastapi-jwt_auth-pet"
 ### 2. Настройте переменные окружения:
 1. Переименуйте .env.example в .env.
 2. Заполните переменные своими значениями. Пример для работы через Docker:
-```
+
 APP__CONFIG__DB__HOST=postgres
 APP__CONFIG__DB__PORT=5432
 APP__CONFIG__DB__USER=user
@@ -34,7 +34,6 @@ APP__CONFIG__REDIS__HOST=redis
 APP__CONFIG__REDIS__PORT=6379
 
 APP__CONFIG__MODE=DEV
-```
 
 *Для локального запуска (без Docker) замените postgres и redis на localhost.*
 
