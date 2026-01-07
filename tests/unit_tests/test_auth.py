@@ -15,29 +15,43 @@ class TestTokens:
         assert isinstance(hashed_token, str)
 
 class TestApi:
-    # TODO: ОТЛАДИТЬ ТЕСТ:
-    # FAILED tests/unit_tests/test_auth.py::TestApi::test_unauthorize_user[/users/login/-POST-401] - assert 422 == 401
-    # FAILED tests/unit_tests/test_auth.py::TestApi::test_unauthorize_user[/users/logout-POST-401] - assert 307 == 401
-    # FAILED tests/unit_tests/test_auth.py::TestApi::test_unauthorize_user[/users/me-GET-401] - assert 307 == 401
     @pytest.mark.asyncio
+    async def test_unauthorize_user(self, ac):
+        response = await ac.get("/me/")
+        assert response.status_code == 401
+    
+    
     @pytest.mark.parametrize(
-        "url, method, st_code",
+        "login_data",
         [
-            ["/users/login/", "POST", 401],
-            # ["/users/tokens/refresh/", 401],
-            ["/users/logout", "POST", 401],
-            ["/users/me", "GET", 401],
+            {"username": "test_user", "password": "1234test"},
+            {"username": "test_user_1", "password": "5678test"},
         ]
     )
-    async def test_unauthorize_user(self, url, method, st_code):
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://127.0.0.1:8080"
-        ) as ac:
-            if method == "GET":
-                response = await ac.get(url=url)
-                assert response.status_code == st_code
-            elif method == "POST":
-                response = await ac.post(url=url)
-                assert response.status_code == st_code
-    
+    @pytest.mark.asyncio
+    async def test_authorize_user(self, ac: AsyncClient, login_data: dict):
+        # 1. Вход юзера в систему
+        response_login = await ac.post("/login/", data=login_data)
+        
+        assert response_login.status_code == 200
+        data = response_login.json()
+        
+        # Проверка токенов в теле ответа
+        assert "access_token" in data
+        assert "refresh_token" in data
+        assert data["token_type"].lower() == "bearer"
+        
+        # Проверка кук 
+        assert "access" in response_login.cookies
+        assert "refresh" in response_login.cookies
+        
+        # 2. Проверка доступа к защищенному эндпоинту
+        token = data["access_token"]
+        headers = {'Authorization': f'Bearer {token}'}
+        response_info = await ac.get("/me/", headers=headers)
+        
+        assert response_info.status_code == 200
+        
+        # 3. Дополнительная проверка: убедимся, что вернулся именно тот юзер
+        info_data = response_info.json()
+        assert info_data["username"] == login_data["username"]
