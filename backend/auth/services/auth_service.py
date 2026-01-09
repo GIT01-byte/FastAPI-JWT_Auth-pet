@@ -42,7 +42,7 @@ import utils.time_decorator
 from utils.time_decorator import time_all_methods, sync_timed_report, async_timed_report
 
 
-# @time_all_methods(async_timed_report())
+@time_all_methods(async_timed_report())
 class AuthService:
     async def _get_user_by_user_id(self, user_id: int) -> User:
         """

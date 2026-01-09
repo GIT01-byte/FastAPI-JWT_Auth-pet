@@ -37,7 +37,7 @@ def async_timed_report():
                 end_time = time.perf_counter()
                 duration = end_time - start_time
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                report_line = (f"[{timestamp}] Функция: {func.__name__} | "
+                report_line = (f"[{timestamp}] Расположение: {func.__code__.co_filename} Функция: {func.__name__} | "
                                f"Время выполнения: {duration:.4f} сек.\n")
                 
                 with open(os.path.join(full_path_dir, "async_timed_report.txt"), "a", encoding="utf-8") as f:
@@ -61,7 +61,7 @@ def sync_timed_report():
                 end_time = time.perf_counter()
                 duration = end_time - start_time
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                report_line = (f"[{timestamp}] Функция: {func.__name__} | "
+                report_line = (f"[{timestamp}] Расположение: {func.__code__.co_filename} Функция: {func.__name__} | "
                                f"Время выполнения: {duration:.4f} сек.\n")
                 
                 with open(os.path.join(full_path_dir, "sync_timed_report.txt"), "a", encoding="utf-8") as f:

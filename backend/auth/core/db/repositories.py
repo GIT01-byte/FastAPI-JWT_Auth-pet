@@ -21,8 +21,10 @@ from core.db.db_manager import db_manager
 from core.models.users import RefreshToken, User
 
 from utils.logging import logger
+from utils.time_decorator import time_all_methods, sync_timed_report, async_timed_report
 
 
+@time_all_methods(async_timed_report())
 class UsersRepo:
     @staticmethod
     async def create_user(payload: dict) -> Optional[User]:

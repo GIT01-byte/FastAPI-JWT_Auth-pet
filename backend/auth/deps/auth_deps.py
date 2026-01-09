@@ -26,10 +26,12 @@ from utils.security import (
 
 from core.settings import settings
 from utils.logging import logger
+from utils.time_decorator import time_all_methods, sync_timed_report, async_timed_report
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login/")
 
 
+@sync_timed_report()
 def clear_cookie_with_tokens(response: Response) -> Response:
     """
     Очищает куки с токенами из ответа.
@@ -43,6 +45,7 @@ def clear_cookie_with_tokens(response: Response) -> Response:
     return response
 
 
+@sync_timed_report()
 def set_tokens_cookie(response: Response, access_token: str, refresh_token: str):
     """
     Устанавливает и обновляет токены в куки с настройками безопасности.
@@ -78,6 +81,7 @@ def set_tokens_cookie(response: Response, access_token: str, refresh_token: str)
         raise SetCookieFailedError() from exc
 
 
+@async_timed_report()
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     redis: Redis = Depends(get_redis_client),
@@ -127,6 +131,7 @@ async def get_current_user(
         raise InvalidTokenError()
 
 
+@async_timed_report()
 async def get_current_active_user(current_user: dict = Depends(get_current_user)):
     """
     Возвращает активного пользователя.
