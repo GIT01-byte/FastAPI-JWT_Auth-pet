@@ -364,10 +364,12 @@ class AuthService:
         """
         Процедура выхода текущего пользователя из системы
 
-        Args:
+        Params:
             response(Response): Объект Response FastAPI 
             access_jti(str): Строка уникального индефикатора access токена 
             user_id(int): ID текущего пользвателя 
+        Raises:
+            LogoutUserFailedError: Если процедура выхода завершилась неудачно
         """
         try:
             # 1. Получение клиента Redis
