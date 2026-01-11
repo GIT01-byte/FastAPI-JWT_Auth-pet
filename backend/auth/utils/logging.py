@@ -15,7 +15,7 @@ LOGS_DIR = f"{BASE_DIR}/logs"
 
 logger = loguru.logger
 
-if settings.mode != "TEST":
+if settings.run_mode.mode != "TEST":
     # Настройка уровня логирования
     logger.remove()
     logger.add(

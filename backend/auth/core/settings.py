@@ -14,6 +14,10 @@ BASE_DIR = Path(__file__).parent.parent
 DOTENV_FILE_PATH = BASE_DIR.parent.parent / ".env"
 
 
+class RunSettings(BaseModel):
+    mode: str = "DEV"
+
+
 class JwtAuth(BaseModel):
     model_config = ConfigDict(strict=True)
 
@@ -52,8 +56,6 @@ class RedisSettings(BaseModel):
 
 
 class Settings(BaseSettings):
-    mode: str
-    
     model_config = SettingsConfigDict(
         env_file=str(DOTENV_FILE_PATH),
         case_sensitive=False,
@@ -61,6 +63,7 @@ class Settings(BaseSettings):
         env_prefix="APP__CONFIG__",
     )
 
+    run_mode: RunSettings = RunSettings() # type: ignore
     jwt: JwtAuth = JwtAuth()
     db: DatabaseSettings
     redis: RedisSettings
@@ -74,6 +77,6 @@ print(f"DB Host: {settings.db.host}")
 print(f"Redis URL: {settings.redis.REDIS_URL}")
 print(f"JWT Algorithm: {settings.jwt.algorithm}")
 print(f"Asyncpg DB URL: {settings.db.DB_URL_asyncpg}")
-print(f"Run mode: {settings.mode}")
+print(f"Run mode: {settings.run_mode.mode}")
 print("--------------------------")
 print()

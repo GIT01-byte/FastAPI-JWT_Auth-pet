@@ -5,7 +5,7 @@ from backend.auth.main import app
 from backend.auth.core.db.repositories import UsersRepo
 from backend.auth.utils.security import ACCESS_TOKEN_TYPE, REFRESH_TOKEN_TYPE, hash_password
 
-# TODO добавить фикстутру для хэша пароля, генерации токенов и добаления юзера в БД
+
 # Фикстура асинхронного клиента
 @pytest.fixture(scope="session")
 async def ac():
@@ -51,19 +51,20 @@ async def auth_user(ac):
     response_login = await ac.post("/login/", data=login_data)
     
     assert response_login.status_code == 200
-    data = response_login.json()
+    response_data = response_login.json()
+    print(response_data)
     
     # Проверка токенов в теле ответа
-    assert "access_token" in data
-    assert "refresh_token" in data
-    assert data["token_type"].lower() == "bearer"
+    assert "access_token" in response_data
+    assert "refresh_token" in response_data
+    assert response_data["token_type"].lower() == "bearer"
     
     # Проверка кук 
     assert ACCESS_TOKEN_TYPE in response_login.cookies
     assert REFRESH_TOKEN_TYPE in response_login.cookies
     
     # 2. Проверка доступа к защищенному эндпоинту
-    token = data["access_token"]
+    token = response_data["access_token"]
     headers = {'Authorization': f'Bearer {token}'}
     response_info = await ac.get("/me/", headers=headers)
     
@@ -72,7 +73,9 @@ async def auth_user(ac):
     # 3. Дополнительная проверка: убедимся, что вернулся именно тот юзер
     info_data = response_info.json()
     assert info_data["username"] == login_data["username"]
+    
     print("Вход тестового Авторизованного пользователя выполнен успешно!")
+    return response_data
 
 # Фикстура генерации jwt токенов для тестового юзера
 # @pytest.fixture

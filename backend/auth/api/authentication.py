@@ -147,7 +147,7 @@ async def auth_logout_user(
     user=Depends(get_current_active_user),
 ):
     auth_service = AuthService()
-    access_jti = user["access_jti"]
+    access_jti = user["jti"]
     user_id = user["user_id"]
     await auth_service.loggout_user_logic(
         response=response, access_jti=access_jti, user_id=user_id

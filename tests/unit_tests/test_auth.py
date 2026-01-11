@@ -101,35 +101,49 @@ class TestApi:
         "register_data",
         [
             {
-                "username": "test_user_2",
-                "email": "test_user_2@testemail.com",
+                "username": "test_user_4",
+                "email": "test_user_4@testemail.com",
                 "profile": {},
                 "password": "1234test"
             },
             {
-                "username": "test_user_3",
-                "email": "test_user_3@testemail.com",
+                "username": "test_user_5",
+                "email": "test_user_5@testemail.com",
                 "password": "5678test"
             }
         ]
     )
     @pytest.mark.asyncio
     async def test_register_user_with_current_user(self, ac: AsyncClient, register_data: dict, auth_user):
-        # 1. Вход пользоваетеля для теста авто-выхода
-
-        
-        # 2. Выполнение процедуры регистрации
+        # 1. Выполнение процедуры регистрации
         response_register = await ac.post("/register/", json=register_data)
         
         assert response_register.status_code == 200
         response_data = response_register.json()
         
-        # 3. Проверка выходных данных
+        # 2. Проверка выходных данных
         assert register_data["username"] in response_data["message"]
         
-        # 4. Проверка пользователя в БД
+        # 3. Проверка пользователя в БД
         user_in_db = await UsersRepo.select_user_by_username(register_data["username"])
         
         assert user_in_db is not None, f"Пользователь {register_data['username']} не найден в БД"
         assert user_in_db.username == register_data['username']
         assert user_in_db.email == register_data['email']
+
+        # 4. Проверка на авто-выход текущего пользоваетеля
+        response = await ac.get("/me/")
+        assert response.status_code == 401
+        
+        # 5. Проверка входа нового пользователя
+        login_data = {"username": register_data["username"], "password": register_data["password"]}
+        response_login = await ac.post("/login/", data=login_data)
+        
+        assert response_login.status_code == 200
+        response_data = response_login.json()
+    
+        token = response_data["access_token"]
+        headers = {'Authorization': f'Bearer {token}'}
+        response_info = await ac.get("/me/", headers=headers)
+
+        assert response_info.status_code == 200
